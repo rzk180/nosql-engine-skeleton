@@ -1,6 +1,9 @@
 package qengine.storage;
 
 import fr.boreal.model.logicalElements.api.*;
+import fr.boreal.model.logicalElements.factory.impl.SameObjectPredicateFactory;
+import fr.boreal.model.logicalElements.factory.impl.SameObjectTermFactory;
+import fr.boreal.model.logicalElements.factory.api.TermFactory;
 import fr.boreal.model.logicalElements.impl.SubstitutionImpl;
 import org.apache.commons.lang3.NotImplementedException;
 import qengine.model.RDFAtom;
@@ -9,6 +12,10 @@ import qengine.model.StarQuery;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
+import java.util.Spliterator;
+import java.util.Spliterators;
+
 
 /**
  * Implémentation d'un HexaStore pour stocker des RDFAtom.
@@ -16,6 +23,7 @@ import java.util.stream.Stream;
  * Les index sont basés sur les combinaisons (Sujet, Prédicat, Objet), (Sujet, Objet, Prédicat),
  * (Prédicat, Sujet, Objet), (Prédicat, Objet, Sujet), (Objet, Sujet, Prédicat) et (Objet, Prédicat, Sujet).
  */
+
 public class RDFHexaStore implements RDFStorage {
 
     // Dictionnaire pour l'encodage/décodage
@@ -29,15 +37,16 @@ public class RDFHexaStore implements RDFStorage {
     private final Map<Integer, Map<Integer, Set<Integer>>> ospIndex = new HashMap<>();
     private final Map<Integer, Map<Integer, Set<Integer>>> opsIndex = new HashMap<>();
 
-    public RDFHexaStore(Dictionary dictionary) {
-        this.dictionary = dictionary;
+    public RDFHexaStore() {
+        this.dictionary = new Dictionary(); // Initialise le dictionnaire RDF
     }
+
 
     @Override
     public boolean add(RDFAtom atom) {
-        int s = dictionary.encode(atom.getSubject());
-        int p = dictionary.encode(atom.getPredicate());
-        int o = dictionary.encode(atom.getObject());
+        int s = dictionary.encode(atom.getTripleSubject().toString());
+        int p = dictionary.encode(atom.getPredicate().toString());
+        int o = dictionary.encode(atom.getTripleObject().toString());
 
         // Ajouter le triplet dans les six index
         addToIndex(spoIndex, s, p, o);
@@ -67,9 +76,9 @@ public class RDFHexaStore implements RDFStorage {
 
     @Override
     public Iterator<Substitution> match(RDFAtom atom) {
-        Integer s = atom.getSubject() != null ? dictionary.encode(atom.getSubject()) : null;
-        Integer p = atom.getPredicate() != null ? dictionary.encode(atom.getPredicate()) : null;
-        Integer o = atom.getObject() != null ? dictionary.encode(atom.getObject()) : null;
+        Integer s = atom.getTripleSubject() != null ? dictionary.encode(atom.getTripleSubject().toString()) : null;
+        Integer p = atom.getPredicate() != null ? dictionary.encode(atom.getPredicate().toString()) : null;
+        Integer o = atom.getTripleObject() != null ? dictionary.encode(atom.getTripleObject().toString()) : null;
 
         Stream<Substitution> results;
 
@@ -121,12 +130,12 @@ public class RDFHexaStore implements RDFStorage {
 
     @Override
     public Iterator<Substitution> match(StarQuery q) {
-        List<RDFAtom> atoms = q.getAtoms();
+        List<RDFAtom> atoms = q.getRdfAtoms();
 
         // Évaluer les résultats pour chaque triplet
         List<Iterator<Substitution>> results = atoms.stream()
                 .map(this::match)
-                .collect(Collectors.toList());
+                .toList();
 
         // Fusionner les résultats
         return results.stream().flatMap(it -> StreamSupport.stream(
@@ -138,11 +147,20 @@ public class RDFHexaStore implements RDFStorage {
     public Collection<Atom> getAtoms() {
         List<Atom> atoms = new ArrayList<>();
 
-        spoIndex.forEach((s, pMap) ->
-                pMap.forEach((p, oSet) ->
-                        oSet.forEach(o ->
-                                atoms.add(new RDFAtom(dictionary.decode(s),
-                                        dictionary.decode(p), dictionary.decode(o))))));
+        spoIndex.forEach((sID, pMap) ->
+                pMap.forEach((pID, oSet) ->
+                        oSet.forEach(oID -> {
+                            // Utilisation de SameObjectPredicateFactory pour créer les Term
+                            Term s = SameObjectTermFactory.instance().createOrGetLiteral(dictionary.decode(sID));
+                            Term p = SameObjectTermFactory.instance().createOrGetLiteral(dictionary.decode(pID));
+                            Term o = SameObjectTermFactory.instance().createOrGetLiteral(dictionary.decode(oID));
+
+                            // Ajouter le RDFAtom à la liste
+                            atoms.add(new RDFAtom(s, p, o));
+                        })
+                )
+        );
         return atoms;
     }
+
 }
