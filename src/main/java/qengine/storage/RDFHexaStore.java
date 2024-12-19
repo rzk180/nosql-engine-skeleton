@@ -1,9 +1,7 @@
 package qengine.storage;
 
 import fr.boreal.model.logicalElements.api.*;
-import fr.boreal.model.logicalElements.factory.impl.SameObjectPredicateFactory;
 import fr.boreal.model.logicalElements.factory.impl.SameObjectTermFactory;
-import fr.boreal.model.logicalElements.factory.api.TermFactory;
 import fr.boreal.model.logicalElements.impl.SubstitutionImpl;
 import org.apache.commons.lang3.NotImplementedException;
 import qengine.model.RDFAtom;
@@ -12,10 +10,6 @@ import qengine.model.StarQuery;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
-import java.util.Spliterator;
-import java.util.Spliterators;
-
 
 /**
  * Implémentation d'un HexaStore pour stocker des RDFAtom.
@@ -23,144 +17,169 @@ import java.util.Spliterators;
  * Les index sont basés sur les combinaisons (Sujet, Prédicat, Objet), (Sujet, Objet, Prédicat),
  * (Prédicat, Sujet, Objet), (Prédicat, Objet, Sujet), (Objet, Sujet, Prédicat) et (Objet, Prédicat, Sujet).
  */
-
 public class RDFHexaStore implements RDFStorage {
 
-    // Dictionnaire pour l'encodage/décodage
-    private final Dictionary dictionary;
+    private final Dictionary dictionary; // Dictionnaire pour encoder/décoder les termes RDF
+    private final Index index; // Index HexaStore pour stocker les triplets
+    private long size = 0; // Nombre de triplets stockés
 
-    // Six index pour les triplets RDF
-    private final Map<Integer, Map<Integer, Set<Integer>>> spoIndex = new HashMap<>();
-    private final Map<Integer, Map<Integer, Set<Integer>>> sopIndex = new HashMap<>();
-    private final Map<Integer, Map<Integer, Set<Integer>>> psoIndex = new HashMap<>();
-    private final Map<Integer, Map<Integer, Set<Integer>>> posIndex = new HashMap<>();
-    private final Map<Integer, Map<Integer, Set<Integer>>> ospIndex = new HashMap<>();
-    private final Map<Integer, Map<Integer, Set<Integer>>> opsIndex = new HashMap<>();
-
+    /**
+     * Constructeur initialisant le dictionnaire et l'index.
+     */
     public RDFHexaStore() {
         this.dictionary = new Dictionary(); // Initialise le dictionnaire RDF
+        this.index = new Index(); // Initialise l'index RDF
     }
 
-
+    /**
+     * Ajoute un RDFAtom dans le store en l'encodant et le stockant dans les index.
+     */
     @Override
     public boolean add(RDFAtom atom) {
-        int s = dictionary.encode(atom.getTripleSubject().toString());
-        int p = dictionary.encode(atom.getPredicate().toString());
-        int o = dictionary.encode(atom.getTripleObject().toString());
+        // Encode les termes du triplet RDF (sujet, prédicat, objet)
+        int subjectId = dictionary.encode(atom.getTripleSubject().toString());
+        int predicateId = dictionary.encode(atom.getTriplePredicate().toString());
+        int objectId = dictionary.encode(atom.getTripleObject().toString());
 
-        // Ajouter le triplet dans les six index
-        addToIndex(spoIndex, s, p, o);
-        addToIndex(sopIndex, s, o, p);
-        addToIndex(psoIndex, p, s, o);
-        addToIndex(posIndex, p, o, s);
-        addToIndex(ospIndex, o, s, p);
-        addToIndex(opsIndex, o, p, s);
-
-        return true; // Retourne true si l'ajout a réussi
-    }
-
-    private void addToIndex(Map<Integer, Map<Integer, Set<Integer>>> index, int a, int b, int c) {
-        index.computeIfAbsent(a, k -> new HashMap<>())
-                .computeIfAbsent(b, k -> new HashSet<>())
-                .add(c);
-    }
-
-    @Override
-    public long size() {
-        // Le nombre de triplets correspond au nombre d'éléments dans SPO
-        return spoIndex.values().stream()
-                .mapToLong(map -> map.values().stream()
-                        .mapToLong(Set::size).sum())
-                .sum();
-    }
-
-    @Override
-    public Iterator<Substitution> match(RDFAtom atom) {
-        Integer s = atom.getTripleSubject() != null ? dictionary.encode(atom.getTripleSubject().toString()) : null;
-        Integer p = atom.getPredicate() != null ? dictionary.encode(atom.getPredicate().toString()) : null;
-        Integer o = atom.getTripleObject() != null ? dictionary.encode(atom.getTripleObject().toString()) : null;
-
-        Stream<Substitution> results;
-
-        if (s != null && p != null && o != null) {
-            results = matchExact(spoIndex, s, p, o);
-        } else if (s != null && p != null) {
-            results = matchPartial(spoIndex, s, p);
-        } else if (s != null && o != null) {
-            results = matchPartial(sopIndex, s, o);
-        } else if (p != null && o != null) {
-            results = matchPartial(posIndex, p, o);
-        } else if (s != null) {
-            results = matchSingle(spoIndex, s);
-        } else if (p != null) {
-            results = matchSingle(psoIndex, p);
-        } else if (o != null) {
-            results = matchSingle(ospIndex, o);
-        } else {
-            results = Stream.empty();
+        // Vérifie si le triplet est déjà présent
+        List<int[]> matches = index.findMatches(subjectId, predicateId, objectId);
+        if (!matches.isEmpty()) {
+            return false; // Retourne false si le triplet existe déjà
         }
 
-        return results.iterator();
+
+        // Ajoute le triplet encodé dans les six index
+        index.addTriple(subjectId, predicateId, objectId);
+
+        size++; // Incrémente le compteur de triplets
+        return true; // Retourne true après ajout
     }
 
-    private Stream<Substitution> matchExact(
-            Map<Integer, Map<Integer, Set<Integer>>> index, int a, int b, int c) {
-        return index.getOrDefault(a, Collections.emptyMap())
-                .getOrDefault(b, Collections.emptySet())
-                .contains(c)
-                ? Stream.of(new SubstitutionImpl())
-                : Stream.empty();
-    }
-
-    private Stream<Substitution> matchPartial(
-            Map<Integer, Map<Integer, Set<Integer>>> index, int a, int b) {
-        return index.getOrDefault(a, Collections.emptyMap())
-                .getOrDefault(b, Collections.emptySet())
-                .stream()
-                .map(value -> new SubstitutionImpl());
-    }
-
-    private Stream<Substitution> matchSingle(
-            Map<Integer, Map<Integer, Set<Integer>>> index, int a) {
-        return index.getOrDefault(a, Collections.emptyMap())
-                .values().stream()
-                .flatMap(Set::stream)
-                .map(value -> new SubstitutionImpl());
-    }
-
+    /**
+     * Retourne le nombre total de triplets stockés dans l'HexaStore.
+     */
     @Override
-    public Iterator<Substitution> match(StarQuery q) {
-        List<RDFAtom> atoms = q.getRdfAtoms();
-
-        // Évaluer les résultats pour chaque triplet
-        List<Iterator<Substitution>> results = atoms.stream()
-                .map(this::match)
-                .toList();
-
-        // Fusionner les résultats
-        return results.stream().flatMap(it -> StreamSupport.stream(
-                        Spliterators.spliteratorUnknownSize(it, Spliterator.ORDERED), false))
-                .iterator();
+    public long size() {
+        return size; // Retourne la taille actuelle
     }
 
+    /**
+     * Recherche les correspondances pour un RDFAtom donné.
+     */
+    @Override
+    public Iterator<Substitution> match(RDFAtom atom) {
+        // Récupère les termes du triplet
+        Term subjectTerm = atom.getTripleSubject();
+        Term predicateTerm = atom.getTriplePredicate();
+        Term objectTerm = atom.getTripleObject();
+
+        // Encode les termes en entiers, ou -1 pour les variables
+        int subjectId = (subjectTerm instanceof Variable) ? -1 : dictionary.encode(subjectTerm.toString());
+        int predicateId = (predicateTerm instanceof Variable) ? -1 : dictionary.encode(predicateTerm.toString());
+        int objectId = (objectTerm instanceof Variable) ? -1 : dictionary.encode(objectTerm.toString());
+
+        // Trouve les triplets correspondants dans les index
+        List<int[]> matches = index.findMatches(subjectId, predicateId, objectId);
+
+        // Liste pour stocker les substitutions finales
+        List<Substitution> results = new ArrayList<>();
+
+        // Parcourt les triplets correspondants
+        for (int[] triple : matches) {
+            Map<Variable, Term> substitutionMap = new HashMap<>();
+
+            // Ajoute les substitutions pour les variables dans le triplet
+            if (subjectTerm instanceof Variable) {
+                Term subject = SameObjectTermFactory.instance().createOrGetLiteral(dictionary.decode(triple[0]));
+                substitutionMap.put((Variable) subjectTerm, subject);
+            }
+            if (predicateTerm instanceof Variable) {
+                Term predicate =SameObjectTermFactory.instance().createOrGetLiteral(dictionary.decode(triple[1]));
+                substitutionMap.put((Variable) predicateTerm, predicate);
+            }
+            if (objectTerm instanceof Variable) {
+                Term object = SameObjectTermFactory.instance().createOrGetLiteral(dictionary.decode(triple[2]));
+                substitutionMap.put((Variable) objectTerm, object);
+            }
+
+            // Crée une substitution et l'ajoute aux résultats
+            Substitution substitution = new SubstitutionImpl(substitutionMap);
+            results.add(substitution);
+        }
+        return results.iterator(); // Retourne un itérateur sur les substitutions
+    }
+
+    /**
+     * Lancer une exception pour indiquer que les requêtes en étoile ne sont pas encore implémentées.
+     */
+
+
+    /**
+     * Lancer une exception pour indiquer que la récupération des atomes n'est pas implémentée.
+     */
     @Override
     public Collection<Atom> getAtoms() {
+        // Liste pour stocker les atomes RDF décodés
         List<Atom> atoms = new ArrayList<>();
 
-        spoIndex.forEach((sID, pMap) ->
-                pMap.forEach((pID, oSet) ->
-                        oSet.forEach(oID -> {
-                            // Utilisation de SameObjectPredicateFactory pour créer les Term
-                            Term s = SameObjectTermFactory.instance().createOrGetLiteral(dictionary.decode(sID));
-                            Term p = SameObjectTermFactory.instance().createOrGetLiteral(dictionary.decode(pID));
-                            Term o = SameObjectTermFactory.instance().createOrGetLiteral(dictionary.decode(oID));
+        // Récupérer tous les triplets encodés depuis l'index
+        List<int[]> allTriples = index.getAllTriples();
 
-                            // Ajouter le RDFAtom à la liste
-                            atoms.add(new RDFAtom(s, p, o));
-                        })
-                )
-        );
+        // Décoder chaque triplet pour recréer les RDFAtom
+        for (int[] triple : allTriples) {
+            // Décodage des termes RDF
+            Term subject = SameObjectTermFactory.instance().createOrGetLiteral(dictionary.decode(triple[0]));
+            Term predicate = SameObjectTermFactory.instance().createOrGetLiteral(dictionary.decode(triple[1]));
+            Term object = SameObjectTermFactory.instance().createOrGetLiteral(dictionary.decode(triple[2]));
+
+            // Créer un RDFAtom à partir des termes décodés
+            Atom atom = new RDFAtom(subject, predicate, object);
+
+            // Ajouter l'atome à la liste
+            atoms.add(atom);
+        }
+
+        // Retourner la collection d'atomes
         return atoms;
+    }
+
+    @Override
+    public Iterator<Substitution> match(StarQuery query) {
+        if (query.getRdfAtoms().isEmpty()) {
+            return Collections.emptyIterator(); // Vide si pas de pattern
+        }
+
+        List<RDFAtom> atoms = query.getRdfAtoms();
+        List<Substitution> combinedResults = new ArrayList<>();
+
+        for (RDFAtom atom : atoms) {
+            Iterator<Substitution> atomMatches = match(atom);
+
+            if (combinedResults.isEmpty()) {
+                // Initialize combined results for the first RDFAtom
+                atomMatches.forEachRemaining(combinedResults::add);
+                continue;
+            }
+
+            List<Substitution> newResults = new ArrayList<>();
+            while (atomMatches.hasNext()) {
+                Substitution currentSubstitution = atomMatches.next();
+
+                for (Substitution existingSubstitution : combinedResults) {
+                    // Résoud un soucis d'optional substitution
+                    currentSubstitution.merged(existingSubstitution).ifPresent(newResults::add);
+                }
+            }
+
+            combinedResults = newResults;
+
+            //Quitte si c'est vide
+            if (combinedResults.isEmpty()) {
+                break;
+            }
+        }
+
+        return combinedResults.iterator();
     }
 
 }

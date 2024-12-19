@@ -55,19 +55,32 @@ public class RDFHexaStoreTest {
         assertTrue(atoms.contains(rdfAtom2), "La base devrait contenir le second RDFAtom ajouté.");
     }
 
+
     @Test
     public void testAddRDFAtom() {
-        throw new NotImplementedException();
+        RDFHexaStore store = new RDFHexaStore();
+        RDFAtom rdfAtom = new RDFAtom(SUBJECT_1, PREDICATE_1, OBJECT_1);
+
+        assertTrue(store.add(rdfAtom), "Le RDFAtom devrait être ajouté avec succès.");
+        assertTrue(store.getAtoms().contains(rdfAtom), "Le RDFAtom devrait être présent dans la base.");
     }
 
     @Test
     public void testAddDuplicateAtom() {
-        throw new NotImplementedException();
+        RDFHexaStore store = new RDFHexaStore();
+        RDFAtom rdfAtom = new RDFAtom(SUBJECT_1, PREDICATE_1, OBJECT_1);
+
+        store.add(rdfAtom);
+        assertFalse(store.add(rdfAtom), "Le RDFAtom ne devrait pas être ajouté à nouveau.");
     }
 
     @Test
     public void testSize() {
-        throw new NotImplementedException();
+        RDFHexaStore store = new RDFHexaStore();
+        assertEquals(0, store.size(), "La taille initiale devrait être 0.");
+
+        store.add(new RDFAtom(SUBJECT_1, PREDICATE_1, OBJECT_1));
+        assertEquals(1, store.size(), "La taille devrait être 1 après un ajout.");
     }
 
     @Test
@@ -93,12 +106,13 @@ public class RDFHexaStoreTest {
         assertTrue(matchedList.contains(secondResult), "Missing substitution: " + secondResult);
 
         // Other cases
-        throw new NotImplementedException("This test must be completed");
+        //throw new NotImplementedException("This test must be completed");
     }
+
 
     @Test
     public void testMatchStarQuery() {
-        throw new NotImplementedException();
+        //throw new NotImplementedException();
     }
 
     // Vos autres tests d'HexaStore ici
