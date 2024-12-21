@@ -5,21 +5,21 @@ import java.util.*;
 public class Index {
 
     // Six indices pour permettre différentes combinaisons de recherche
-    private final Map<Integer, Map<Integer, Set<Integer>>> sp_o = new HashMap<>();
-    private final Map<Integer, Map<Integer, Set<Integer>>> so_p = new HashMap<>();
-    private final Map<Integer, Map<Integer, Set<Integer>>> ps_o = new HashMap<>();
-    private final Map<Integer, Map<Integer, Set<Integer>>> po_s = new HashMap<>();
-    private final Map<Integer, Map<Integer, Set<Integer>>> os_p = new HashMap<>();
-    private final Map<Integer, Map<Integer, Set<Integer>>> op_s = new HashMap<>();
+    private final Map<Integer, Map<Integer, Set<Integer>>> spo = new HashMap<>();
+    private final Map<Integer, Map<Integer, Set<Integer>>> sop = new HashMap<>();
+    private final Map<Integer, Map<Integer, Set<Integer>>> pso = new HashMap<>();
+    private final Map<Integer, Map<Integer, Set<Integer>>> pos = new HashMap<>();
+    private final Map<Integer, Map<Integer, Set<Integer>>> osp = new HashMap<>();
+    private final Map<Integer, Map<Integer, Set<Integer>>> ops = new HashMap<>();
 
     // Ajoute un triplet à tous les indices
     public void addTriple(int subject, int predicate, int object) {
-        addToIndex(sp_o, subject, predicate, object);
-        addToIndex(so_p, subject, object, predicate);
-        addToIndex(ps_o, predicate, subject, object);
-        addToIndex(po_s, predicate, object, subject);
-        addToIndex(os_p, object, subject, predicate);
-        addToIndex(op_s, object, predicate, subject);
+        addToIndex(spo, subject, predicate, object);
+        addToIndex(sop, subject, object, predicate);
+        addToIndex(pso, predicate, subject, object);
+        addToIndex(pos, predicate, object, subject);
+        addToIndex(osp, object, subject, predicate);
+        addToIndex(ops, object, predicate, subject);
     }
 
     // Méthode utilitaire pour ajouter des valeurs dans un index
@@ -36,7 +36,7 @@ public class Index {
         // Cas 1 : Tous les paramètres sont spécifiés
         if (subject != -1 && predicate != -1 && object != -1) {
             // Recherche directe dans sp_o
-            Map<Integer, Set<Integer>> secondMap = sp_o.get(subject);
+            Map<Integer, Set<Integer>> secondMap = spo.get(subject);
             if (secondMap != null) {
                 Set<Integer> thirdSet = secondMap.get(predicate);
                 if (thirdSet != null && thirdSet.contains(object)) {
@@ -47,7 +47,7 @@ public class Index {
             // Cas 2 : Sujet et prédicat spécifiés
         } else if (subject != -1 && predicate != -1) {
             // Recherche dans sp_o
-            Map<Integer, Set<Integer>> secondMap = sp_o.get(subject);
+            Map<Integer, Set<Integer>> secondMap = spo.get(subject);
             if (secondMap != null) {
                 Set<Integer> thirdSet = secondMap.get(predicate);
                 if (thirdSet != null) {
@@ -60,7 +60,7 @@ public class Index {
             // Cas 3 : Prédicat et objet spécifiés
         } else if (predicate != -1 && object != -1) {
             // Recherche dans po_s
-            Map<Integer, Set<Integer>> secondMap = po_s.get(predicate);
+            Map<Integer, Set<Integer>> secondMap = pos.get(predicate);
             if (secondMap != null) {
                 Set<Integer> thirdSet = secondMap.get(object);
                 if (thirdSet != null) {
@@ -73,7 +73,7 @@ public class Index {
             // Cas 4 : Sujet et objet spécifiés
         } else if (subject != -1 && object != -1) {
             // Recherche dans so_p
-            Map<Integer, Set<Integer>> secondMap = so_p.get(subject);
+            Map<Integer, Set<Integer>> secondMap = sop.get(subject);
             if (secondMap != null) {
                 Set<Integer> thirdSet = secondMap.get(object);
                 if (thirdSet != null) {
@@ -88,7 +88,7 @@ public class Index {
             // Cas 5 : Prédicat spécifié uniquement
         } else if (predicate != -1) {
             // Recherche dans ps_o
-            Map<Integer, Set<Integer>> secondMap = ps_o.get(predicate);
+            Map<Integer, Set<Integer>> secondMap = pso.get(predicate);
             if (secondMap != null) {
                 for (Map.Entry<Integer, Set<Integer>> entry : secondMap.entrySet()) {
                     int subjectValue = entry.getKey();
@@ -101,7 +101,7 @@ public class Index {
             // Cas 6 : Objet spécifié uniquement
         } else if (object != -1) {
             // Recherche dans os_p
-            Map<Integer, Set<Integer>> secondMap = os_p.get(object);
+            Map<Integer, Set<Integer>> secondMap = osp.get(object);
             if (secondMap != null) {
                 for (Map.Entry<Integer, Set<Integer>> entry : secondMap.entrySet()) {
                     int subjectValue = entry.getKey();
@@ -114,7 +114,7 @@ public class Index {
             // Cas 7 : Aucun paramètre spécifié
         } else {
             // Parcours complet de sp_o (ou de tout autre index)
-            for (Map.Entry<Integer, Map<Integer, Set<Integer>>> entry1 : sp_o.entrySet()) {
+            for (Map.Entry<Integer, Map<Integer, Set<Integer>>> entry1 : spo.entrySet()) {
                 int subjectValue = entry1.getKey();
                 for (Map.Entry<Integer, Set<Integer>> entry2 : entry1.getValue().entrySet()) {
                     int predicateValue = entry2.getKey();
@@ -131,7 +131,7 @@ public class Index {
     public List<int[]> getAllTriples() {
         List<int[]> allTriples = new ArrayList<>();
         // Traverse the sp_o index (or any other index) to gather all triples
-        for (Map.Entry<Integer, Map<Integer, Set<Integer>>> entry1 : sp_o.entrySet()) {
+        for (Map.Entry<Integer, Map<Integer, Set<Integer>>> entry1 : spo.entrySet()) {
             int subjectValue = entry1.getKey();
             for (Map.Entry<Integer, Set<Integer>> entry2 : entry1.getValue().entrySet()) {
                 int predicateValue = entry2.getKey();

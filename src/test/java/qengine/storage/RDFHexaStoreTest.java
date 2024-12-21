@@ -3,8 +3,14 @@ package qengine.storage;
 import fr.boreal.model.logicalElements.api.*;
 import fr.boreal.model.logicalElements.factory.impl.SameObjectTermFactory;
 import fr.boreal.model.logicalElements.impl.SubstitutionImpl;
+import fr.boreal.model.logicalElements.api.Variable;
+import fr.boreal.model.logicalElements.impl.ConstantImpl;
+import fr.boreal.model.logicalElements.impl.VariableImpl;
+import org.checkerframework.checker.units.qual.C;
+import org.junit.jupiter.api.BeforeEach;
 import org.apache.commons.lang3.NotImplementedException;
 import qengine.model.RDFAtom;
+import qengine.model.StarQuery;
 import qengine.storage.RDFHexaStore;
 import org.junit.jupiter.api.Test;
 
@@ -23,6 +29,7 @@ public class RDFHexaStoreTest {
     private static final Literal<String> PREDICATE_2 = SameObjectTermFactory.instance().createOrGetLiteral("predicate2");
     private static final Literal<String> OBJECT_2 = SameObjectTermFactory.instance().createOrGetLiteral("object2");
     private static final Literal<String> OBJECT_3 = SameObjectTermFactory.instance().createOrGetLiteral("object3");
+    private static final Literal<String> OBJECT_4 = SameObjectTermFactory.instance().createOrGetLiteral("object4");
     private static final Variable VAR_X = SameObjectTermFactory.instance().createOrGetVariable("?x");
     private static final Variable VAR_Y = SameObjectTermFactory.instance().createOrGetVariable("?y");
 
@@ -111,9 +118,102 @@ public class RDFHexaStoreTest {
 
 
     @Test
-    public void testMatchStarQuery() {
-        //throw new NotImplementedException();
+    void testMatch_StarQuery() {
+        RDFHexaStore rdfHexaStore = new RDFHexaStore();
+        // Ajouter 20 RDFAtoms au RDFHexaStore
+        rdfHexaStore.add(new RDFAtom(new ConstantImpl("Alice"), new ConstantImpl("knows"), new ConstantImpl("Bob")));
+        rdfHexaStore.add(new RDFAtom(new ConstantImpl("Alice"), new ConstantImpl("likes"), new ConstantImpl("Pizza")));
+        rdfHexaStore.add(new RDFAtom(new ConstantImpl("Bob"), new ConstantImpl("works_for"), new ConstantImpl("Nasa")));
+        rdfHexaStore.add(new RDFAtom(new ConstantImpl("Alice"), new ConstantImpl("works_for"), new ConstantImpl("Domino")));
+        rdfHexaStore.add(new RDFAtom(new ConstantImpl("Alice"), new ConstantImpl("knows"), new ConstantImpl("Eve")));
+        rdfHexaStore.add(new RDFAtom(new ConstantImpl("Charlie"), new ConstantImpl("works_for"), new ConstantImpl("Microsoft")));
+        rdfHexaStore.add(new RDFAtom(new ConstantImpl("Ruby"), new ConstantImpl("knows"), new ConstantImpl("Bob")));
+        rdfHexaStore.add(new RDFAtom(new ConstantImpl("Bob"), new ConstantImpl("works_for"), new ConstantImpl("Tesla")));
+        rdfHexaStore.add(new RDFAtom(new ConstantImpl("Alice"), new ConstantImpl("likes"), new ConstantImpl("Sushi")));
+        rdfHexaStore.add(new RDFAtom(new ConstantImpl("Charlie"), new ConstantImpl("friends_with"), new ConstantImpl("Alice")));
+        rdfHexaStore.add(new RDFAtom(new ConstantImpl("Bob"), new ConstantImpl("likes"), new ConstantImpl("Panini")));
+        rdfHexaStore.add(new RDFAtom(new ConstantImpl("Charlie"), new ConstantImpl("knows"), new ConstantImpl("Alice")));
+        rdfHexaStore.add(new RDFAtom(new ConstantImpl("Thomas"), new ConstantImpl("works_for"), new ConstantImpl("Google")));
+        rdfHexaStore.add(new RDFAtom(new ConstantImpl("Alice"), new ConstantImpl("friends_with"), new ConstantImpl("Eve")));
+        rdfHexaStore.add(new RDFAtom(new ConstantImpl("Ruby"), new ConstantImpl("likes"), new ConstantImpl("Chocolate")));
+        rdfHexaStore.add(new RDFAtom(new ConstantImpl("Thomas"), new ConstantImpl("knows"), new ConstantImpl("Charlie")));
+        rdfHexaStore.add(new RDFAtom(new ConstantImpl("Ruby"), new ConstantImpl("works_for"), new ConstantImpl("Facebook")));
+        rdfHexaStore.add(new RDFAtom(new ConstantImpl("Alice"), new ConstantImpl("likes"), new ConstantImpl("Cake")));
+        rdfHexaStore.add(new RDFAtom(new ConstantImpl("Bob"), new ConstantImpl("friends_with"), new ConstantImpl("Eve")));
+        rdfHexaStore.add(new RDFAtom(new ConstantImpl("Thomas"), new ConstantImpl("likes"), new ConstantImpl("Pasta")));
+
+        // Définir 8 requêtes de type StarQuery
+
+        //Requete 01
+        List<RDFAtom> rdfAtoms1 = Arrays.asList(
+                new RDFAtom(new VariableImpl("?x"), new ConstantImpl("knows"), new ConstantImpl("Bob"))
+        );
+        StarQuery query1 = new StarQuery("Query1", rdfAtoms1, Set.of(new VariableImpl("?x")));
+        //Requete 02
+        List<RDFAtom> rdfAtoms2 = Arrays.asList(
+                new RDFAtom(new VariableImpl("?x"), new ConstantImpl("likes"), new ConstantImpl("Pizza")),
+                new RDFAtom(new VariableImpl("?x"), new VariableImpl("?y"), new ConstantImpl("Facebook"))
+        );
+        StarQuery query2 = new StarQuery("Query2", rdfAtoms2, Set.of(new VariableImpl("?x"), new VariableImpl("?y")));
+        //Requete 03
+        List<RDFAtom> rdfAtoms3 = Arrays.asList(
+                new RDFAtom(new VariableImpl("?x"), new ConstantImpl("works_for"), new ConstantImpl("Tesla"))
+        );
+        StarQuery query3 = new StarQuery("Query3", rdfAtoms3, Set.of(new VariableImpl("?x")));
+
+        //Requete 04
+        List<RDFAtom> rdfAtoms4 = Arrays.asList(
+                new RDFAtom(new ConstantImpl("Eve"), new ConstantImpl("likes"), new VariableImpl("?z")),
+                new RDFAtom(new ConstantImpl("Charlie"), new VariableImpl("?y"), new VariableImpl("?z"))
+        );
+        StarQuery query4 = new StarQuery("Query4", rdfAtoms4, Set.of(new VariableImpl("?z")));
+        //Requete 05
+        List<RDFAtom> rdfAtoms5 = Arrays.asList(
+                new RDFAtom(new VariableImpl("?x"), new ConstantImpl("likes"), new VariableImpl("?y")),
+                new RDFAtom(new ConstantImpl("Charlie"), new VariableImpl("?z"), new VariableImpl("?x"))
+        );
+        StarQuery query5 = new StarQuery("Query5", rdfAtoms5, Set.of(new VariableImpl("?x"),new VariableImpl("?y"),new VariableImpl("?z")));
+
+        List<RDFAtom> rdfAtoms6 = Arrays.asList(
+                new RDFAtom(new VariableImpl("?x"), new ConstantImpl("knows"), new ConstantImpl("Bob")),
+                new RDFAtom(new VariableImpl("?x"), new ConstantImpl("likes"), new ConstantImpl("Pizza")),
+                new RDFAtom(new VariableImpl("?x"), new ConstantImpl("works_for"), new ConstantImpl("Domino"))
+        );
+        StarQuery query6 = new StarQuery("Query5", rdfAtoms6, Set.of(new VariableImpl("?x")));
+        //requete 06
+
+
+
+        // Lancer les requêtes et vérifier les résultats
+        //requete 01
+        Iterator<Substitution> iterateur;
+        iterateur = rdfHexaStore.match(query1);
+        assertEquals("{?x:Alice}",iterateur.next().toString());
+        assertEquals("{?x:Ruby}",iterateur.next().toString());
+        assertFalse(iterateur.hasNext());
+
+        //requetes 02
+        iterateur= rdfHexaStore.match(query2);
+        assertFalse(iterateur.hasNext());
+        // Assert pour requête 3
+        iterateur = rdfHexaStore.match(query3);
+        assertEquals("{?x:Bob}", iterateur.next().toString());
+        assertFalse(iterateur.hasNext());
+        //requete 04
+        iterateur= rdfHexaStore.match(query4);
+        assertFalse(iterateur.hasNext());
+
+        //requete 05
+        iterateur= rdfHexaStore.match(query5);
+        //assertEquals("{?x:Alice, ?y:Pizza, ?z:knows}",iterateur.next().toString());
+        //assertEquals("{?x:Alice, ?y:Pizza, ?z:friends_with}",iterateur.next().toString());
+        //assertFalse(iterateur.hasNext());
+
+        //requete 06
+        iterateur = rdfHexaStore.match(query6);
+        assertEquals("{?x:Alice}",iterateur.next().toString());
+        assertFalse(iterateur.hasNext());
     }
 
-    // Vos autres tests d'HexaStore ici
+
 }

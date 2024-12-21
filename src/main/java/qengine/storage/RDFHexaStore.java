@@ -27,8 +27,8 @@ public class RDFHexaStore implements RDFStorage {
      * Constructeur initialisant le dictionnaire et l'index.
      */
     public RDFHexaStore() {
-        this.dictionary = new Dictionary(); // Initialise le dictionnaire RDF
-        this.index = new Index(); // Initialise l'index RDF
+        this.dictionary = new Dictionary(); // Initialise le dictionnaire
+        this.index = new Index(); // Initialise l'index
     }
 
     /**
@@ -94,7 +94,7 @@ public class RDFHexaStore implements RDFStorage {
                 substitutionMap.put((Variable) subjectTerm, subject);
             }
             if (predicateTerm instanceof Variable) {
-                Term predicate =SameObjectTermFactory.instance().createOrGetLiteral(dictionary.decode(triple[1]));
+                Term predicate = SameObjectTermFactory.instance().createOrGetLiteral(dictionary.decode(triple[1]));
                 substitutionMap.put((Variable) predicateTerm, predicate);
             }
             if (objectTerm instanceof Variable) {
@@ -109,14 +109,8 @@ public class RDFHexaStore implements RDFStorage {
         return results.iterator(); // Retourne un itérateur sur les substitutions
     }
 
-    /**
-     * Lancer une exception pour indiquer que les requêtes en étoile ne sont pas encore implémentées.
-     */
 
-
-    /**
-     * Lancer une exception pour indiquer que la récupération des atomes n'est pas implémentée.
-     */
+    
     @Override
     public Collection<Atom> getAtoms() {
         // Liste pour stocker les atomes RDF décodés
@@ -146,18 +140,27 @@ public class RDFHexaStore implements RDFStorage {
     @Override
     public Iterator<Substitution> match(StarQuery query) {
         if (query.getRdfAtoms().isEmpty()) {
-            return Collections.emptyIterator(); // Vide si pas de pattern
+            return Collections.emptyIterator();
         }
 
         List<RDFAtom> atoms = query.getRdfAtoms();
         List<Substitution> combinedResults = new ArrayList<>();
 
+        // Traiter chaque atome de la requête
         for (RDFAtom atom : atoms) {
+            System.out.println("Matching atom: " + atom);
             Iterator<Substitution> atomMatches = match(atom);
 
+            if (!atomMatches.hasNext()) {
+                // Si aucun résultat pour cet atome, retourner un itérateur vide
+                System.out.println("No matches for atom: " + atom);
+                return Collections.emptyIterator();
+            }
+
+            // Initialiser les résultats combinés avec les premiers atomes
             if (combinedResults.isEmpty()) {
-                // Initialize combined results for the first RDFAtom
                 atomMatches.forEachRemaining(combinedResults::add);
+                System.out.println("Initial matches: " + combinedResults);
                 continue;
             }
 
@@ -165,21 +168,29 @@ public class RDFHexaStore implements RDFStorage {
             while (atomMatches.hasNext()) {
                 Substitution currentSubstitution = atomMatches.next();
 
+                // Fusionner les substitutions avec celles existantes
                 for (Substitution existingSubstitution : combinedResults) {
-                    // Résoud un soucis d'optional substitution
-                    currentSubstitution.merged(existingSubstitution).ifPresent(newResults::add);
+                    // Fusionner seulement les substitutions compatibles
+                    Optional<Substitution> merged = currentSubstitution.merged(existingSubstitution);
+
+                    // Ajouter la substitution fusionnée si elle est valide
+                    merged.ifPresent(newResults::add);
                 }
             }
 
+            // Remplacer les résultats combinés avec les nouveaux résultats
             combinedResults = newResults;
+            System.out.println("Combined results: " + combinedResults);
 
-            //Quitte si c'est vide
+            // Si les résultats sont vides après la fusion, on peut arrêter
             if (combinedResults.isEmpty()) {
                 break;
             }
         }
 
+        System.out.println("Final results: " + combinedResults);
         return combinedResults.iterator();
     }
+
 
 }
